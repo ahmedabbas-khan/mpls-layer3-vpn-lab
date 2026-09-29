@@ -1,92 +1,141 @@
-# MPLS Layer 3 VPN Lab — HBL Head Office and Branch
+<div align="center">
+
+<img src="images/readme-hero.png" alt="MPLS Layer 3 VPN Lab — topology diagrams" width="100%">
+
+<br><br>
 
 [![Validate lab files](https://github.com/ahmedabbas-khan/mpls-layer3-vpn-lab/actions/workflows/validate.yml/badge.svg)](https://github.com/ahmedabbas-khan/mpls-layer3-vpn-lab/actions/workflows/validate.yml)
-![Platform](https://img.shields.io/badge/platform-Cisco%20IOS%20%7C%20GNS3-blue)
+![Cisco IOS](https://img.shields.io/badge/platform-Cisco%20IOS-informational)
+![GNS3](https://img.shields.io/badge/emulated%20on-GNS3-blue)
+![Python](https://img.shields.io/badge/validator-Python%203-yellow)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-A five router **MPLS Layer 3 VPN** built and documented from scratch: two customer sites (HBL Head Office and HBL Branch) reach each other privately across a shared provider core, using OSPF, MPLS/LDP, VRFs, and MP-BGP (VPNv4).
+**Two customer sites, one shared provider core, zero leaked routes.**
+A five-router MPLS Layer 3 VPN, fully configured, documented, and self-checking.
 
-> Built and documented by **Ahmed Abbas** — IT student (Networking), Bahauddin Zakariya University, Multan. Part of a personal Cisco lab portfolio alongside [`cisco-secure-acs-aaa-lab`](https://github.com/ahmedabbas-khan/cisco-secure-acs-aaa-lab) and [`intro-to-networking-labs`](https://github.com/ahmedabbas-khan).
+[Quick start](#-quick-start) · [Docs](#-documentation) · [Configs](configs/) · [Study notes (.docx)](docs/Study-Notes-MPLS-L3VPN.docx)
 
-## Topology
+</div>
 
-![Logical topology](images/topology-logical.png)
+<br>
 
-R1 and R5 are the two customer sites. **R2 and R4 are Provider Edge (PE)** routers, each holding one VRF. **R3 is a core (P) router** that runs no VRF and no BGP — it forwards every packet by MPLS label alone and never sees a single customer route.
+## 📡 What this is
 
-| Router | Role | Runs |
-|--------|------|------|
-| R1 | CE — HBL Head Office | OSPF 10 |
-| R2 | PE — owns VRF A | OSPF 1, MPLS/LDP, VRF A, OSPF 10 in VRF, MP-BGP |
-| R3 | P — provider core | OSPF 1, MPLS/LDP only |
-| R4 | PE — owns VRF B | OSPF 1, MPLS/LDP, VRF B, OSPF 10 in VRF, MP-BGP |
-| R5 | CE — HBL Branch | OSPF 10 |
+HBL **Head Office** (R1) and HBL **Branch** (R5) talk to each other privately across a provider network they don't own. The provider core (R2 – P – R4) forwards every packet purely by **MPLS label** — it never learns a single customer route. Each site's routes live in their own **VRF**, kept apart by a Route Distinguisher and stitched back together across the core by **MP-BGP (VPNv4)**.
 
-## Why this design
+| | Router | Role | Runs |
+|---|--------|------|------|
+| 🖥️ | **R1** | CE — Head Office | OSPF 10 |
+| 🔁 | **R2** | PE — owns VRF A | OSPF 1 · MPLS/LDP · VRF A · OSPF 10 in VRF · MP-BGP |
+| ⚙️ | **R3** | P — core only | OSPF 1 · MPLS/LDP — **no VRF, no BGP** |
+| 🔁 | **R4** | PE — owns VRF B | OSPF 1 · MPLS/LDP · VRF B · OSPF 10 in VRF · MP-BGP |
+| 🖥️ | **R5** | CE — Branch | OSPF 10 |
 
-* **Privacy.** Each site's routes live in their own VRF (virtual routing table), tagged with a unique Route Distinguisher, so two customers could even reuse the same IP addresses without conflict.
-* **A lean core.** The provider's own routers (R3 especially) never learn a customer route — every core to core packet is forwarded purely by MPLS label. Proven directly in [`docs/04-verification.md`](docs/04-verification.md).
-* **Controlled reachability.** Sites only reach each other because their VRFs explicitly **import** each other's Route Target — nothing crosses by accident.
+<details>
+<summary><b>Why it's built this way</b> (click to expand)</summary>
+<br>
 
-## Repository layout
+- **Privacy** — each site's routes sit in their own VRF, tagged with a unique Route Distinguisher, so two customers could reuse the same IP range without ever colliding.
+- **A lean core** — R3 forwards purely by MPLS label and never touches a customer address. Proven hop-by-hop in [`docs/04-verification.md`](docs/04-verification.md).
+- **Controlled reachability** — sites reach each other only because their VRFs explicitly **import** each other's Route Target. Nothing crosses by accident.
 
-```
-mpls-layer3-vpn-lab/
-├── configs/                    Final router configurations, ready to paste
-│   ├── R1.cfg  R2.cfg  R3.cfg  R4.cfg  R5.cfg
-│   ├── addressing.csv          Machine-readable IP addressing plan
-│   └── README.md               How to load a config, why route-targets expand
-├── docs/
-│   ├── 01-concepts.md          MPLS VPN theory from zero, in plain English
-│   ├── 02-design-and-addressing.md   Topology, addressing table, OSPF cost math
-│   ├── 03-configuration-guide.md     All 10 steps, commands + expected output
-│   ├── 04-verification.md      One packet traced hop by hop, label by label
-│   ├── 05-troubleshooting.md   Symptom → command to check → likely cause
-│   ├── 06-command-reference.md Every command used, grouped, one line each
-│   ├── 07-command-corrections.md  Fixes to the original lab sheet's commands
-│   ├── 08-study-guide.md       Cheat sheet, common mistakes, practice Q&A
-│   └── Study-Notes-MPLS-L3VPN.docx  Full illustrated Word write-up
-├── images/                     Both topology diagrams + 48 output screenshots
-├── tools/
-│   └── validate_configs.py     Checks addressing, configs, BGP and VRF design
-└── .github/workflows/validate.yml   Runs the validator on every push
-```
+</details>
 
-## Quick start (GNS3 / Cisco IOS)
+<br>
 
-1. Build the topology in GNS3 exactly as shown above (five routers, links per the table in [`docs/02-design-and-addressing.md`](docs/02-design-and-addressing.md)).
-2. For each router, open its console and paste the matching file from [`configs/`](configs/):
+## 🖼️ It actually works — see for yourself
+
+<img src="images/readme-gallery.png" alt="Sample verification output: LFIB, VPNv4 routes, ping, traceroute" width="100%">
+
+<sub>Every step has its own labelled screenshots in [`docs/03-configuration-guide.md`](docs/03-configuration-guide.md) and a full hop-by-hop packet trace in [`docs/04-verification.md`](docs/04-verification.md).</sub>
+
+<br>
+
+## 🚀 Quick start
+
+<details open>
+<summary><b>Load it in GNS3 / Cisco IOS</b></summary>
+<br>
+
+1. Build the topology above (five routers, cabling in [`docs/02-design-and-addressing.md`](docs/02-design-and-addressing.md)).
+2. Paste each router's config from [`configs/`](configs/):
+
    ```
    enable
    configure terminal
-   <paste the file>
+   <paste the matching R*.cfg>
    end
    write memory
    ```
-3. Give OSPF, LDP and BGP a minute or two to converge.
+3. Give OSPF, LDP and BGP a minute to converge.
 4. Verify:
    ```
    R1#ping 55.5.5.5 source Loopback0
    R5#ping 11.1.1.1 source Loopback0
    ```
-   Both should succeed at 100 percent. Full expected output for every step is in the docs.
+   Both should return **100 percent**.
 
-## Validate the files yourself
+</details>
+
+<details>
+<summary><b>Validate the files yourself</b></summary>
+<br>
 
 ```bash
 python tools/validate_configs.py
 ```
+Checks every interface address against `configs/addressing.csv`, confirms both ends of every link agree, and checks R2/R4's BGP and VRF settings are consistent — R3 included, to prove it stays clean. Runs automatically on every push via GitHub Actions.
 
-Checks that every interface address agrees between `configs/*.cfg` and `configs/addressing.csv`, that both ends of every link share a network, that R2 and R4's BGP neighbours and VRF route-targets are consistent, and that R3 (the P router) carries no VRF or BGP configuration. Runs automatically on every push via GitHub Actions.
+</details>
 
-## Read the write-up
+<br>
 
-Start with [`docs/01-concepts.md`](docs/01-concepts.md) if MPLS VPNs are new to you — it explains CE/PE/P, RD, RT and MP-BGP with a courier analogy before any configuration appears. Then follow [`docs/03-configuration-guide.md`](docs/03-configuration-guide.md) step by step, and use [`docs/04-verification.md`](docs/04-verification.md) to see exactly how one packet is labelled, forwarded and delivered. A fully illustrated Word version of the same material is in [`docs/Study-Notes-MPLS-L3VPN.docx`](docs/Study-Notes-MPLS-L3VPN.docx).
+## 📚 Documentation
 
-## Tools used
+| Guide | What's in it |
+|---|---|
+| [`01-concepts.md`](docs/01-concepts.md) | MPLS VPN theory from zero — CE/PE/P, RD, RT, MP-BGP, with a courier analogy |
+| [`02-design-and-addressing.md`](docs/02-design-and-addressing.md) | Topology, full addressing table, OSPF cost math |
+| [`03-configuration-guide.md`](docs/03-configuration-guide.md) | All 10 steps — commands + expected output, screenshotted |
+| [`04-verification.md`](docs/04-verification.md) | One packet traced hop by hop, label by label |
+| [`05-troubleshooting.md`](docs/05-troubleshooting.md) | Symptom → command to check → likely cause |
+| [`06-command-reference.md`](docs/06-command-reference.md) | Every command used, grouped, one line each |
+| [`07-command-corrections.md`](docs/07-command-corrections.md) | Fixes to the original lab sheet's broken commands |
+| [`08-study-guide.md`](docs/08-study-guide.md) | Cheat sheet, common mistakes, practice Q&A |
+| [`Study-Notes-MPLS-L3VPN.docx`](docs/Study-Notes-MPLS-L3VPN.docx) | The same material, fully illustrated, as a Word document |
 
-Cisco IOS (routers), GNS3 (topology emulation), Python 3 (validation script), GitHub Actions (CI).
+<br>
 
-## License
+## 🗂️ Repository layout
 
-[MIT](LICENSE) — free to use for learning or teaching, with attribution appreciated.
+<details>
+<summary>Expand full tree</summary>
+
+```
+mpls-layer3-vpn-lab/
+├── configs/              Final router configs, ready to paste (R1–R5, addressing.csv)
+├── docs/                 9 guides — concepts to command reference — + Word write-up
+├── images/                Topology diagrams + 48 labelled output screenshots
+├── tools/
+│   └── validate_configs.py   Checks addressing, configs, BGP and VRF design
+└── .github/workflows/     CI: runs the validator on every push
+```
+
+</details>
+
+<br>
+
+## 🛠️ Tools used
+
+Cisco IOS · GNS3 · Python 3 · GitHub Actions
+
+<br>
+
+---
+
+<div align="center">
+<sub>Built and documented by <b>Ahmed Abbas</b> — IT student (Networking), Bahauddin Zakariya University, Multan.<br>
+Part of a personal Cisco lab portfolio, alongside <a href="https://github.com/ahmedabbas-khan/cisco-secure-acs-aaa-lab">cisco-secure-acs-aaa-lab</a> and <a href="https://github.com/ahmedabbas-khan">intro-to-networking-labs</a>.</sub>
+<br><br>
+Licensed under <a href="LICENSE">MIT</a> — free to use for learning or teaching, with attribution appreciated.
+</div>
