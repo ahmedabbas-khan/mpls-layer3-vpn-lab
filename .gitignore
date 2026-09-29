@@ -1,0 +1,22 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Word temporary lock files
+~$*.docx
+
+# Python
+__pycache__/
+*.pyc
+
+# GNS3 runtime files (keep configs, not disk images or captures)
+*.gns3project
+*.pcap
+*.pcapng
+project-files/
